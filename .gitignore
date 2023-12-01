@@ -19,3 +19,15 @@
 
 # Go workspace file
 go.work
+
+# Zig
+zig-cache/
+zig-out/
+/release/
+/debug/
+/build/
+/build-*/
+/docgen_tmp/
+
+# Advent of code
+input.txt
