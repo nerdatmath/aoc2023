@@ -1,24 +1,67 @@
 const std = @import("std");
 const expect = @import("std").testing.expect;
 
-fn part1() !void {
-    const file = try std.fs.cwd().openFile("input.txt", .{});
-    defer file.close();
-    var buffer: [1 << 16]u8 = undefined;
-    const bytes_read = try file.readAll(&buffer);
-    const input = buffer[0..bytes_read];
+const Matcher: type = *const fn ([]const u8) ?u8;
+
+fn matchDigit(buffer: []const u8) ?u8 {
+    if (buffer.len < 1) {
+        return null;
+    }
+    const ch = buffer[0];
+    if ('0' <= ch and ch <= '9') {
+        return ch - '0';
+    }
+    return null;
+}
+
+fn firstMatch(buffer: []const u8, match: Matcher) ?u8 {
+    var pos: usize = 0;
+    while (pos < buffer.len) : (pos += 1) {
+        if (match(buffer[pos..])) |value| {
+            return value;
+        }
+    }
+    return null;
+}
+
+fn lastMatch(buffer: []const u8, match: Matcher) ?u8 {
+    var pos: usize = 0;
+    while (pos < buffer.len) : (pos += 1) {
+        if (match(buffer[buffer.len - pos - 1 ..])) |value| {
+            return value;
+        }
+    }
+    return null;
+}
+
+fn digits(buffer: []const u8, match: Matcher) ?u8 {
+    if (firstMatch(buffer, match)) |d1| {
+        if (lastMatch(buffer, match)) |d2| {
+            return d1 * 10 + d2;
+        }
+    }
+    return null;
+}
+
+fn part1(input: []const u8) !void {
     var linesIter = std.mem.splitScalar(u8, input, '\n');
     var sum: u16 = 0;
     while (linesIter.next()) |line| {
-        const firstIndex = std.mem.indexOfAny(u8, line, "0123456789") orelse return error.NoDigits;
-        const lastIndex = std.mem.lastIndexOfAny(u8, line, "0123456789").?;
-        const n: u8 = (line[firstIndex] - '0') * 10 + (line[lastIndex] - '0');
-        sum += n;
+        sum += digits(line, matchDigit) orelse return error.NoDigits;
     }
     std.debug.print("{d}\n", .{sum});
 }
 
-const WrittenDigit = struct { text: []const u8, value: u8 };
+const WrittenDigit = struct {
+    text: []const u8,
+    value: u8,
+    fn match(self: WrittenDigit, buffer: []const u8) ?u8 {
+        if (std.mem.startsWith(u8, buffer, self.text)) {
+            return self.value;
+        }
+        return null;
+    }
+};
 
 const WrittenDigits = [_]WrittenDigit{
     .{ .text = "one", .value = 1 },
@@ -42,70 +85,42 @@ const WrittenDigits = [_]WrittenDigit{
     .{ .text = "9", .value = 9 },
 };
 
-fn firstDigit(line: []const u8) ?u8 {
-    var idx: ?usize = null;
-    var value: ?u8 = null;
+fn matchWrittenDigit(buffer: []const u8) ?u8 {
     for (WrittenDigits) |writtenDigit| {
-        if (std.mem.indexOf(u8, line, writtenDigit.text)) |i| {
-            if (i <= (idx orelse i)) {
-                idx = i;
-                value = writtenDigit.value;
-            }
-        }
-    }
-    return value;
-}
-
-test "firstDigit" {
-    try expect(firstDigit("blahsevenblah") == 7);
-    try expect(firstDigit("blahtwonesevenblah") == 2);
-    try expect(firstDigit("blahnothing") == null);
-}
-
-fn lastDigit(line: []const u8) ?u8 {
-    var idx: ?usize = null;
-    var value: ?u8 = null;
-    for (WrittenDigits) |writtenDigit| {
-        if (std.mem.lastIndexOf(u8, line, writtenDigit.text)) |i| {
-            if (i >= (idx orelse i)) {
-                idx = i;
-                value = writtenDigit.value;
-            }
-        }
-    }
-    return value;
-}
-
-test "lastDigit" {
-    try expect(lastDigit("blahsevenblah") == 7);
-    try expect(lastDigit("blah6twoneblah") == 1);
-    try expect(lastDigit("blahnothing") == null);
-}
-
-fn digits(line: []const u8) ?u8 {
-    if (firstDigit(line)) |d1| {
-        if (lastDigit(line)) |d2| {
-            return d1 * 10 + d2;
+        if (writtenDigit.match(buffer)) |value| {
+            return value;
         }
     }
     return null;
 }
 
-fn part2() !void {
-    const file = try std.fs.cwd().openFile("input.txt", .{});
-    defer file.close();
-    var buffer: [1 << 16]u8 = undefined;
-    const bytes_read = try file.readAll(&buffer);
-    const input = buffer[0..bytes_read];
+test "firstMatch, matchWrittenDigit" {
+    try expect(firstMatch("blahsevenblah", matchWrittenDigit) == 7);
+    try expect(firstMatch("blahtwonesevenblah", matchWrittenDigit) == 2);
+    try expect(firstMatch("blahnothing", matchWrittenDigit) == null);
+}
+
+test "lastMatch, matchWrittenDigit" {
+    try expect(lastMatch("blahsevenblah", matchWrittenDigit) == 7);
+    try expect(lastMatch("blah6twoneblah", matchWrittenDigit) == 1);
+    try expect(lastMatch("blahnothing", matchWrittenDigit) == null);
+}
+
+fn part2(input: []const u8) !void {
     var linesIter = std.mem.splitScalar(u8, input, '\n');
     var sum: u16 = 0;
     while (linesIter.next()) |line| {
-        sum += digits(line) orelse return error.NoDigits;
+        sum += digits(line, matchWrittenDigit) orelse return error.NoDigits;
     }
     std.debug.print("{d}\n", .{sum});
 }
 
 pub fn main() !void {
-    try part1();
-    try part2();
+    const file = try std.fs.cwd().openFile("input.txt", .{});
+    defer file.close();
+    var buffer: [1 << 16]u8 = undefined;
+    const bytes_read = try file.readAll(&buffer);
+    const input = buffer[0..bytes_read];
+    try part1(input);
+    try part2(input);
 }
