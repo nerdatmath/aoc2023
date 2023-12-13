@@ -190,8 +190,8 @@ const Path = struct {
     loop: []const usize,
 };
 
-fn path(allocator: std.mem.Allocator, s: State, map: Map) !Path {
-    var state = s;
+fn path(allocator: std.mem.Allocator, node: NodeID, map: Map) !Path {
+    var state = State{ .node = node, .pos = 0 };
     var d = std.AutoHashMap(State, usize).init(allocator);
     defer d.deinit();
     var list = std.ArrayList(usize).init(allocator);
@@ -216,11 +216,11 @@ test "path" {
     const map: Map = try parseMap(arena.allocator(), test_input2);
     try std.testing.expectEqualDeep(
         Path{ .prefix = &[_]usize{2}, .loop = &[_]usize{2} },
-        try path(arena.allocator(), State{ .node = tNodeID("QQA"), .pos = 0 }, map),
+        try path(arena.allocator(), tNodeID("QQA"), map),
     );
     try std.testing.expectEqualDeep(
         Path{ .prefix = &[_]usize{3}, .loop = &[_]usize{ 3, 3 } },
-        try path(arena.allocator(), State{ .node = tNodeID("RRA"), .pos = 0 }, map),
+        try path(arena.allocator(), tNodeID("RRA"), map),
     );
 }
 
@@ -258,44 +258,28 @@ test "distToTarget" {
     }
 }
 
+fn lcm(a: usize, b: usize) usize {
+    return a * b / std.math.gcd(a, b);
+}
+
 fn part2(allocator: std.mem.Allocator, map: Map) !usize {
-    _ = map;
-    _ = allocator;
-    // var list = std.ArrayList(NodeID).init(allocator);
-    // defer list.deinit();
-    // for (map.nodes) |node| {
-    //     if (node % 26 == 0) { // ends with A
-    //         try list.append(node);
-    //     }
-    // }
-    // var nodes = list.items;
-    // const state = struct { pos: usize, node: NodeID };
-    // var cache = std.AutoHashMap(state, usize).init(allocator);
-    // defer cache.deinit();
-    // var step: usize = 0;
-    // while (true) {
-    //     for (map.instructions, 0..) |inst, pos| {
-    //         // return if all nodes are targets
-    //         for (nodes) |node| {
-    //             if (node % 26 == 25) {
-    //                 const st = state{ .pos = pos, .node = node };
-    //                 if (cache.contains(st)) {
-    //                     // do something!
-    //                 } else {
-    //                     try cache.put(st, step);
-    //                 }
-    //             }
-    //         } else return step;
-    //         for (nodes) |*node| {
-    //             switch (inst) {
-    //                 .left => node.* = map.left[node.*],
-    //                 .right => node.* = map.right[node.*],
-    //             }
-    //         }
-    //         step += 1;
-    //     }
-    // }
-    return error.NotImplemented;
+    // The following only works because we know that the paths we get will have
+    // a single element prefix, and the loop will just be copies of that same value.
+    // That's not a reasonable expectation a priori, but it's true of the input data.
+    // So we can just take the LCM of all those numbers.
+    var steps: usize = 1;
+    for (map.nodes) |node| {
+        if (isSource(node)) { // ends with A
+            const p = try path(allocator, node, map);
+            // Confirm that it matches our expectations or error out.
+            if (p.prefix.len != 1) return error.UnexpectedPath;
+            for (p.loop) |x| {
+                if (x != p.prefix[0]) return error.UnexpectedPath;
+            }
+            steps = lcm(steps, p.prefix[0]);
+        }
+    }
+    return steps;
 }
 
 test "part2" {
@@ -303,8 +287,7 @@ test "part2" {
     defer arena.deinit();
     {
         const map: Map = try parseMap(arena.allocator(), test_input2);
-        _ = map;
-        // try expect(try part2(arena.allocator(), map) == 6);
+        try expect(try part2(arena.allocator(), map) == 6);
     }
 }
 
