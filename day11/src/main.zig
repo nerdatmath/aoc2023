@@ -14,36 +14,39 @@ const test_input_str =
     \\#...#.....
 ;
 
-const Input = []const []const u8;
+const Int = u64;
 
-const test_input = @as(Input, &[_][]const u8{
-    "...#......",
-    ".......#..",
-    "#.........",
-    "..........",
-    "......#...",
-    ".#........",
-    ".........#",
-    "..........",
-    ".......#..",
-    "#...#.....",
-});
+const Input = struct {
+    rows: []const Int,
+    cols: []const Int,
+};
+
+const test_input = Input{
+    .rows = &[_]Int{ 1, 1, 1, 0, 1, 1, 1, 0, 1, 2 },
+    .cols = &[_]Int{ 2, 1, 0, 1, 1, 0, 1, 2, 0, 1 },
+};
 
 fn parse(input: []const u8) !Input {
-    var list = std.ArrayList([]const u8).init(allocator);
-    errdefer list.deinit();
+    var rowsList = std.ArrayList(Int).init(allocator);
+    var colsList = std.ArrayList(Int).init(allocator);
     var it = std.mem.splitScalar(u8, input, '\n');
-    while (it.next()) |line| {
-        try list.append(line);
+    var j: usize = 0;
+    while (it.next()) |line| : (j += 1) {
+        try rowsList.append(0);
+        for (line, 0..) |ch, i| {
+            if (colsList.items.len == i) try colsList.append(0);
+            if (ch == '#') {
+                rowsList.items[j] += 1;
+                colsList.items[i] += 1;
+            }
+        }
     }
-    return try list.toOwnedSlice();
+    return Input{ .rows = try rowsList.toOwnedSlice(), .cols = try colsList.toOwnedSlice() };
 }
 
 test "parse" {
     try std.testing.expectEqualDeep(test_input, try parse(test_input_str));
 }
-
-const Int = u64;
 
 fn sumOfDistances(input: []const Int, factor: Int) Int {
     var pos: Int = 0;
@@ -66,48 +69,8 @@ test "sumOfDistances" {
     try expect(sumOfDistances(&[_]Int{ 1, 0, 1, 2 }, 2) == 13);
 }
 
-fn columns(input: Input) ![]const Int {
-    var out = try allocator.alloc(Int, input[0].len);
-    for (out) |*x| {
-        x.* = 0;
-    }
-    for (input) |row| {
-        for (row, 0..) |ch, i| {
-            if (ch == '#') out[i] += 1;
-        }
-    }
-    return out;
-}
-
-test "columns" {
-    try std.testing.expectEqualSlices(
-        Int,
-        &[_]Int{ 2, 1, 0, 1, 1, 0, 1, 2, 0, 1 },
-        try columns(test_input),
-    );
-}
-
-fn rows(input: Input) ![]const Int {
-    var out = try allocator.alloc(Int, input.len);
-    for (input, 0..) |row, i| {
-        out[i] = 0;
-        for (row) |ch| {
-            if (ch == '#') out[i] += 1;
-        }
-    }
-    return out;
-}
-
-test "rows" {
-    try std.testing.expectEqualSlices(
-        Int,
-        &[_]Int{ 1, 1, 1, 0, 1, 1, 1, 0, 1, 2 },
-        try rows(test_input),
-    );
-}
-
 fn sumOfDistances2d(input: Input, factor: Int) !Int {
-    return sumOfDistances(try columns(input), factor) + sumOfDistances(try rows(input), factor);
+    return sumOfDistances(input.cols, factor) + sumOfDistances(input.rows, factor);
 }
 
 test "sumOfDistances2d" {
