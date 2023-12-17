@@ -10,9 +10,14 @@ const test_input_str =
     \\?###???????? 3,2,1
 ;
 
-const Int = u64;
-
-const Bits = std.bit_set.IntegerBitSet(64);
+const test_input = @as(Input, &[_]InputRow{
+    .{ .pattern = "???.###", .target = &[_]u16{ 1, 1, 3 } },
+    .{ .pattern = ".??..??...?##.", .target = &[_]u16{ 1, 1, 3 } },
+    .{ .pattern = "?#?#?#?#?#?#?#?", .target = &[_]u16{ 1, 3, 1, 6 } },
+    .{ .pattern = "????.#...#...", .target = &[_]u16{ 4, 1, 1 } },
+    .{ .pattern = "????.######..#####.", .target = &[_]u16{ 1, 6, 5 } },
+    .{ .pattern = "?###????????", .target = &[_]u16{ 3, 2, 1 } },
+});
 
 const InputRow = struct {
     pattern: []const u8,
@@ -32,7 +37,7 @@ fn parseRow(input: []const u8) !InputRow {
     };
 }
 
-const Input = []InputRow;
+const Input = []const InputRow;
 
 fn parse(input: []const u8) !Input {
     var list = std.ArrayList(InputRow).init(allocator);
@@ -41,6 +46,10 @@ fn parse(input: []const u8) !Input {
         try list.append(try parseRow(row));
     }
     return list.toOwnedSlice();
+}
+
+test "parse" {
+    try std.testing.expectEqualDeep(test_input, try parse(test_input_str));
 }
 
 fn skipDamaged(in: []const u8, c: u16) ?[]const u8 {
@@ -68,62 +77,64 @@ const InputRowContext = struct {
 
 const ArrangementsHash = std.HashMap(InputRow, u64, InputRowContext, std.hash_map.default_max_load_percentage);
 
-fn arrangements(memo: *ArrangementsHash, in: []const u8, targets: []const u16) u64 {
-    if (in.len == 0 and targets.len == 0) return 1;
-    if (memo.get(InputRow{ .pattern = in, .target = targets })) |result| {
+fn arrangements(memo: *ArrangementsHash, row: InputRow) u64 {
+    if (row.pattern.len == 0 and row.target.len == 0) return 1;
+    if (memo.get(row)) |result| {
         return result;
     }
     var count: u64 = 0;
-    defer memo.put(InputRow{ .pattern = in, .target = targets }, count) catch {
+    defer memo.put(row, count) catch {
         @panic("out of mem");
     };
-    if (in.len > 0 and in[0] != '#') {
-        count += arrangements(memo, in[1..], targets);
+    if (row.pattern.len > 0 and row.pattern[0] != '#') {
+        const newRow = InputRow{ .pattern = row.pattern[1..], .target = row.target };
+        count += arrangements(memo, newRow);
     }
-    if (targets.len > 0) {
-        if (skipDamaged(in, targets[0])) |next| {
-            count += arrangements(memo, next, targets[1..]);
+    if (row.target.len > 0) {
+        if (skipDamaged(row.pattern, row.target[0])) |next| {
+            const newRow = InputRow{ .pattern = next, .target = row.target[1..] };
+            count += arrangements(memo, newRow);
         }
     }
-    // std.debug.print("arrangements(\"{s}\", {d}) = {d}\n", .{ in, targets, count });
     return count;
 }
 
 test "arrangements" {
     var memo = ArrangementsHash.init(std.testing.allocator);
     defer memo.deinit();
-    try expect(arrangements(&memo, "???.###", &[_]u16{ 1, 1, 3 }) == 1);
-    try expect(arrangements(&memo, ".??..??...?##.", &[_]u16{ 1, 1, 3 }) == 4);
-    try expect(arrangements(&memo, "?#?#?#?#?#?#?#?", &[_]u16{ 1, 3, 1, 6 }) == 1);
-    try expect(arrangements(&memo, "????.#...#...", &[_]u16{ 4, 1, 1 }) == 1);
-    try expect(arrangements(&memo, "????.######..#####.", &[_]u16{ 1, 6, 5 }) == 4);
-    try expect(arrangements(&memo, "?###????????", &[_]u16{ 3, 2, 1 }) == 10);
+    try expect(arrangements(&memo, test_input[0]) == 1);
+    try expect(arrangements(&memo, test_input[1]) == 4);
+    try expect(arrangements(&memo, test_input[2]) == 1);
+    try expect(arrangements(&memo, test_input[3]) == 1);
+    try expect(arrangements(&memo, test_input[4]) == 4);
+    try expect(arrangements(&memo, test_input[5]) == 10);
 }
 
-fn arrangements2(memo: *ArrangementsHash, in: []const u8, targets: []const u16) u64 {
-    const result = arrangements(memo, unfoldPattern(in), unfoldTargets(targets));
-    std.debug.print("arrangements2(\"{s}\", {d}) = {d}\n", .{ in, targets, result });
-    return result;
+fn unfoldRow(row: InputRow) InputRow {
+    return InputRow{
+        .pattern = std.mem.join(allocator, "?", &[_][]const u8{ row.pattern, row.pattern, row.pattern, row.pattern, row.pattern }) catch unreachable,
+        .target = std.mem.concat(allocator, u16, &[_][]const u16{ row.target, row.target, row.target, row.target, row.target }) catch unreachable,
+    };
 }
 
-test "arrangements2" {
+test "arrangements_unfolded" {
     var memo = ArrangementsHash.init(std.testing.allocator);
     defer memo.deinit();
-    try expect(arrangements2(&memo, "???.###", &[_]u16{ 1, 1, 3 }) == 1);
-    try expect(arrangements2(&memo, ".??..??...?##.", &[_]u16{ 1, 1, 3 }) == 16384);
-    try expect(arrangements2(&memo, "?#?#?#?#?#?#?#?", &[_]u16{ 1, 3, 1, 6 }) == 1);
-    try expect(arrangements2(&memo, "????.#...#...", &[_]u16{ 4, 1, 1 }) == 16);
-    try expect(arrangements2(&memo, "????.######..#####.", &[_]u16{ 1, 6, 5 }) == 2500);
-    try expect(arrangements2(&memo, "?###????????", &[_]u16{ 3, 2, 1 }) == 506250);
+    try expect(arrangements(&memo, unfoldRow(test_input[0])) == 1);
+    try expect(arrangements(&memo, unfoldRow(test_input[1])) == 16384);
+    try expect(arrangements(&memo, unfoldRow(test_input[2])) == 1);
+    try expect(arrangements(&memo, unfoldRow(test_input[3])) == 16);
+    try expect(arrangements(&memo, unfoldRow(test_input[4])) == 2500);
+    try expect(arrangements(&memo, unfoldRow(test_input[5])) == 506250);
 }
 
-fn part1(input: Input) !Int {
+fn part1(input: Input) !u64 {
     var memo = ArrangementsHash.init(allocator);
     defer memo.deinit();
     var sum: u64 = 0;
     for (input) |row| {
         memo.clearRetainingCapacity();
-        sum += arrangements(&memo, row.pattern, row.target);
+        sum += arrangements(&memo, row);
     }
     return sum;
 }
@@ -132,21 +143,13 @@ test "part1" {
     try expect(try part1(try parse(test_input_str)) == 21);
 }
 
-fn unfoldPattern(pat: []const u8) []const u8 {
-    return std.mem.join(allocator, "?", &[_][]const u8{ pat, pat, pat, pat, pat }) catch unreachable;
-}
-
-fn unfoldTargets(targets: []const u16) []const u16 {
-    return std.mem.concat(allocator, u16, &[_][]const u16{ targets, targets, targets, targets, targets }) catch unreachable;
-}
-
-fn part2(input: Input) !Int {
+fn part2(input: Input) !u64 {
     var memo = ArrangementsHash.init(allocator);
     defer memo.deinit();
     var sum: u64 = 0;
     for (input) |row| {
         memo.clearRetainingCapacity();
-        sum += arrangements2(&memo, row.pattern, row.target);
+        sum += arrangements(&memo, unfoldRow(row));
     }
     return sum;
 }
