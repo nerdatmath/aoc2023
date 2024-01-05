@@ -32,41 +32,41 @@ const test_program = Program{
         // R (1)
         .{ .ret = false },
         // px (2)
-        .{ .blt = .{ .r = .a, .v = 2006, .label = 14 } },
-        .{ .bgt = .{ .r = .m, .v = 2090, .label = 0 } },
-        .{ .b = .{ .label = 9 } },
+        .{ .blt = .{ .r = .a, .v = 2006, .address = 14 } },
+        .{ .bgt = .{ .r = .m, .v = 2090, .address = 0 } },
+        .{ .b = .{ .address = 9 } },
         // pv (5)
-        .{ .bgt = .{ .r = .a, .v = 1716, .label = 1 } },
-        .{ .b = .{ .label = 0 } },
+        .{ .bgt = .{ .r = .a, .v = 1716, .address = 1 } },
+        .{ .b = .{ .address = 0 } },
         // lnx (7)
-        .{ .bgt = .{ .r = .m, .v = 1548, .label = 0 } },
-        .{ .b = .{ .label = 0 } },
+        .{ .bgt = .{ .r = .m, .v = 1548, .address = 0 } },
+        .{ .b = .{ .address = 0 } },
         // rfg (9)
-        .{ .blt = .{ .r = .s, .v = 537, .label = 23 } },
-        .{ .bgt = .{ .r = .x, .v = 2440, .label = 1 } },
-        .{ .b = .{ .label = 0 } },
+        .{ .blt = .{ .r = .s, .v = 537, .address = 23 } },
+        .{ .bgt = .{ .r = .x, .v = 2440, .address = 1 } },
+        .{ .b = .{ .address = 0 } },
         // qs (12)
-        .{ .bgt = .{ .r = .s, .v = 3448, .label = 0 } },
-        .{ .b = .{ .label = 7 } },
+        .{ .bgt = .{ .r = .s, .v = 3448, .address = 0 } },
+        .{ .b = .{ .address = 7 } },
         // qkq (14)
-        .{ .blt = .{ .r = .x, .v = 1416, .label = 0 } },
-        .{ .b = .{ .label = 16 } },
+        .{ .blt = .{ .r = .x, .v = 1416, .address = 0 } },
+        .{ .b = .{ .address = 16 } },
         // crn (16)
-        .{ .bgt = .{ .r = .x, .v = 2662, .label = 0 } },
-        .{ .b = .{ .label = 1 } },
+        .{ .bgt = .{ .r = .x, .v = 2662, .address = 0 } },
+        .{ .b = .{ .address = 1 } },
         // in (18)
-        .{ .blt = .{ .r = .s, .v = 1351, .label = 2 } },
-        .{ .b = .{ .label = 20 } },
+        .{ .blt = .{ .r = .s, .v = 1351, .address = 2 } },
+        .{ .b = .{ .address = 20 } },
         // qqz (20)
-        .{ .bgt = .{ .r = .s, .v = 2770, .label = 12 } },
-        .{ .blt = .{ .r = .m, .v = 1801, .label = 25 } },
-        .{ .b = .{ .label = 1 } },
+        .{ .bgt = .{ .r = .s, .v = 2770, .address = 12 } },
+        .{ .blt = .{ .r = .m, .v = 1801, .address = 25 } },
+        .{ .b = .{ .address = 1 } },
         // gd (23)
-        .{ .bgt = .{ .r = .a, .v = 3333, .label = 1 } },
-        .{ .b = .{ .label = 1 } },
+        .{ .bgt = .{ .r = .a, .v = 3333, .address = 1 } },
+        .{ .b = .{ .address = 1 } },
         // hdj (25)
-        .{ .bgt = .{ .r = .m, .v = 838, .label = 0 } },
-        .{ .b = .{ .label = 5 } },
+        .{ .bgt = .{ .r = .m, .v = 838, .address = 0 } },
+        .{ .b = .{ .address = 5 } },
     },
     .start = 18,
 };
@@ -100,9 +100,9 @@ const Rating = enum {
 
 const Instruction = union(enum) {
     ret: bool,
-    blt: struct { r: Rating, v: u16, label: usize },
-    bgt: struct { r: Rating, v: u16, label: usize },
-    b: struct { label: usize },
+    blt: struct { r: Rating, v: u16, address: usize },
+    bgt: struct { r: Rating, v: u16, address: usize },
+    b: struct { address: usize },
 };
 
 const Program = struct {
@@ -117,44 +117,44 @@ const Program = struct {
             switch (self.instructions[pc]) {
                 .ret => |ret| return ret,
                 .blt => |blt| if (regs.get(blt.r) < blt.v) {
-                    pc = blt.label;
+                    pc = blt.address;
                 } else {
                     pc += 1;
                 },
                 .bgt => |bgt| if (regs.get(bgt.r) > bgt.v) {
-                    pc = bgt.label;
+                    pc = bgt.address;
                 } else {
                     pc += 1;
                 },
-                .b => |b| pc = b.label,
+                .b => |b| pc = b.address,
             }
         }
     }
     fn volume(self: Self, start: usize, r: Range) u64 {
         var pc = start;
-        var rest = r;
+        var range = r;
         var sum: u64 = 0;
         while (true) {
-            if (rest.isEmpty()) return sum;
+            if (range.isEmpty()) return sum;
             switch (self.instructions[pc]) {
                 .ret => |b| {
-                    if (b) sum += rest.volume();
+                    if (b) sum += range.volume();
                     return sum;
                 },
                 .blt => |blt| {
-                    const sp = rest.splitAt(blt.r, blt.v);
-                    sum += self.volume(blt.label, sp.lo);
-                    rest = sp.hi;
+                    const sp = range.splitAt(blt.r, blt.v);
+                    sum += self.volume(blt.address, sp.lo);
+                    range = sp.hi;
                     pc += 1;
                 },
                 .bgt => |bgt| {
-                    const sp = rest.splitAt(bgt.r, bgt.v + 1);
-                    sum += self.volume(bgt.label, sp.hi);
-                    rest = sp.lo;
+                    const sp = range.splitAt(bgt.r, bgt.v + 1);
+                    sum += self.volume(bgt.address, sp.hi);
+                    range = sp.lo;
                     pc += 1;
                 },
                 .b => |b| {
-                    pc = b.label;
+                    pc = b.address;
                 },
             }
         }
@@ -170,44 +170,60 @@ const Program = struct {
         try list.append(.{ .ret = true });
         try labels.put("R", list.items.len);
         try list.append(.{ .ret = false });
-        var it = std.mem.splitScalar(u8, input, '\n');
-        while (it.next()) |line| {
+        var linesIter = std.mem.splitScalar(u8, input, '\n');
+        while (linesIter.next()) |line| {
             if (line.len < 1) return error.TooShort;
-            if (line[line.len - 1] != '}') return error.NoCloseBrace;
-            var p = std.mem.indexOfScalar(u8, line, '{') orelse return error.NoOpenBrace;
-            try labels.put(line[0..p], list.items.len);
-            var p2 = std.mem.lastIndexOfScalar(u8, line, ',') orelse return error.NoComma;
-            var rules = std.mem.splitScalar(u8, line[p + 1 .. p2], ',');
-            while (rules.next()) |rule| {
-                const p3 = std.mem.indexOfScalar(u8, rule, ':') orelse return error.NoColon;
+            const openBracePos = std.mem.indexOfScalar(u8, line, '{') orelse return error.MissingOpenBrace;
+            const closeBracePos = line.len - 1;
+            const lastCommaPos = std.mem.lastIndexOfScalar(u8, line, ',') orelse return error.MissingComma;
+            const rules = line[openBracePos + 1 .. lastCommaPos];
+            const fallback = line[lastCommaPos + 1 .. closeBracePos];
+            if (line[closeBracePos] != '}') return error.MissingCloseBrace;
+            try labels.put(line[0..openBracePos], list.items.len);
+            var rulesIter = std.mem.splitScalar(u8, rules, ',');
+            while (rulesIter.next()) |rule| {
+                // rule format: x<999:label
+                const colonPos = std.mem.indexOfScalar(u8, rule, ':') orelse return error.MissingColon;
                 const rating = try Rating.parse(rule[0..1]);
-                const value = try std.fmt.parseUnsigned(u16, rule[2..p3], 10);
-                const label = rule[p3 + 1 ..];
+                const value = try std.fmt.parseUnsigned(u16, rule[2..colonPos], 10);
+                const label = rule[colonPos + 1 ..];
+                const instPtr = try list.addOne();
                 switch (rule[1]) {
                     '>' => {
-                        try list.append(.{ .bgt = .{ .r = rating, .v = value, .label = undefined } });
-                        try references.append(.{ .label = label, .offset = @intFromPtr(&list.items[list.items.len - 1].bgt.label) - @intFromPtr(&list.items[0]) });
+                        instPtr.* = .{ .bgt = .{ .r = rating, .v = value, .address = undefined } };
+                        const offset = offsetOf(&instPtr.bgt.address, list.items);
+                        try references.append(.{ .label = label, .offset = offset });
                     },
                     '<' => {
-                        try list.append(.{ .blt = .{ .r = rating, .v = value, .label = undefined } });
-                        try references.append(.{ .label = label, .offset = @intFromPtr(&list.items[list.items.len - 1].blt.label) - @intFromPtr(&list.items[0]) });
+                        instPtr.* = .{ .blt = .{ .r = rating, .v = value, .address = undefined } };
+                        const offset = offsetOf(&instPtr.blt.address, list.items);
+                        try references.append(.{ .label = label, .offset = offset });
                     },
                     else => return error.BadOperator,
                 }
             }
-            try list.append(.{ .b = .{ .label = undefined } });
-            try references.append(.{ .label = line[p2 + 1 .. line.len - 1], .offset = @intFromPtr(&list.items[list.items.len - 1].b.label) - @intFromPtr(&list.items[0]) });
+            {
+                const instPtr = try list.addOne();
+                instPtr.* = .{ .b = .{ .address = undefined } };
+                const offset = offsetOf(&instPtr.b.address, list.items);
+                try references.append(.{ .label = fallback, .offset = offset });
+            }
         }
         for (references.items) |reference| {
-            const ptr = @as(*usize, @ptrFromInt(@intFromPtr(&list.items[0]) + reference.offset));
+            const instStartPtr = &list.items[0];
+            const ptr = @as(*usize, @ptrFromInt(@intFromPtr(instStartPtr) + reference.offset));
             ptr.* = labels.get(reference.label) orelse return error.LabelNotFound;
         }
         return Self{
             .instructions = try list.toOwnedSlice(),
-            .start = labels.get("in") orelse return error.NoEntryPoint,
+            .start = labels.get("in") orelse return error.EntryPointNotFound,
         };
     }
 };
+
+fn offsetOf(ptr: *usize, items: []Instruction) usize {
+    return @intFromPtr(ptr) - @intFromPtr(&items[0]);
+}
 
 test "Program.compile" {
     const pgm = try Program.compile(test_program_str);
@@ -235,14 +251,14 @@ const Part = struct {
 
     fn parse(input: []const u8) !Self {
         var result: Self = undefined;
-        if (input.len < 1 or input[0] != '{') return error.NoOpenBrace;
-        if (input[input.len - 1] != '}') return error.NoCloseBrace;
+        if (input.len < 1 or input[0] != '{') return error.MissingOpenBrace;
+        if (input[input.len - 1] != '}') return error.MissingCloseBrace;
         var it = std.mem.splitScalar(u8, input[1 .. input.len - 1], ',');
         for (std.enums.values(Rating)) |rating|
             if (it.next()) |word| {
                 if (word.len < 2) return error.TooShort;
                 if (try Rating.parse(word[0..1]) != rating) return error.WrongRating;
-                if (word[1] != '=') return error.NoEquals;
+                if (word[1] != '=') return error.MissingEquals;
                 result.set(rating, try std.fmt.parseUnsigned(u16, word[2..], 10));
             };
         if (it.next()) |_| return error.TooManyRatings;
@@ -292,7 +308,7 @@ test "Part.ratingSum" {
 }
 
 fn parse(input: []const u8) !struct { program: Program, data: []const Part } {
-    const p = std.mem.indexOf(u8, input, "\n\n") orelse return error.NoSplit;
+    const p = std.mem.indexOf(u8, input, "\n\n") orelse return error.MissingSplitPoint;
     return .{
         .program = try Program.compile(input[0..p]),
         .data = init: {
