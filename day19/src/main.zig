@@ -1,7 +1,7 @@
 const std = @import("std");
 const expect = @import("std").testing.expect;
 
-const test_input_str =
+const test_program_str =
     \\px{a<2006:qkq,m>2090:A,rfg}
     \\pv{a>1716:R,A}
     \\lnx{m>1548:A,A}
@@ -13,7 +13,9 @@ const test_input_str =
     \\qqz{s>2770:qs,m<1801:hdj,R}
     \\gd{a>3333:R,R}
     \\hdj{m>838:A,pv}
-    \\
+;
+
+const test_data_str =
     \\{x=787,m=2655,a=1222,s=2876}
     \\{x=1679,m=44,a=2067,s=496}
     \\{x=2036,m=264,a=79,s=2244}
@@ -21,120 +23,60 @@ const test_input_str =
     \\{x=2127,m=1623,a=2188,s=1013}
 ;
 
-const test_input = Data{
-    .workflows = &[_]Workflow{
-        Accept,
-        Reject,
-        .{ //crn{x>2662:A,R}
-            .name = "crn",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .x, .op = .gt, .value = 2662 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "R" },
-                },
-            },
-        },
-        .{ //gd{a>3333:R,R}
-            .name = "gd",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .a, .op = .gt, .value = 3333 } }, .workflow = "R" },
-                    .{ .condition = Always, .workflow = "R" },
-                },
-            },
-        },
-        .{ //hdj{m>838:A,pv}
-            .name = "hdj",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .m, .op = .gt, .value = 838 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "pv" },
-                },
-            },
-        },
-        .{ //in{s<1351:px,qqz}
-            .name = "in",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .s, .op = .lt, .value = 1351 } }, .workflow = "px" },
-                    .{ .condition = Always, .workflow = "qqz" },
-                },
-            },
-        },
-        .{ //lnx{m>1548:A,A}
-            .name = "lnx",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .m, .op = .gt, .value = 1548 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "A" },
-                },
-            },
-        },
-        .{ //pv{a>1716:R,A}
-            .name = "pv",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .a, .op = .gt, .value = 1716 } }, .workflow = "R" },
-                    .{ .condition = Always, .workflow = "A" },
-                },
-            },
-        },
-        .{ //px{a<2006:qkq,m>2090:A,rfg}
-            .name = "px",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .a, .op = .lt, .value = 2006 } }, .workflow = "qkq" },
-                    .{ .condition = .{ .comparison = .{ .rating = .m, .op = .gt, .value = 2090 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "rfg" },
-                },
-            },
-        },
-        .{ //qkq{x<1416:A,crn}
-            .name = "qkq",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .x, .op = .lt, .value = 1416 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "crn" },
-                },
-            },
-        },
-        .{ //qqz{s>2770:qs,m<1801:hdj,R}
-            .name = "qqz",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .s, .op = .gt, .value = 2770 } }, .workflow = "qs" },
-                    .{ .condition = .{ .comparison = .{ .rating = .m, .op = .lt, .value = 1801 } }, .workflow = "hdj" },
-                    .{ .condition = Always, .workflow = "R" },
-                },
-            },
-        },
-        .{ //qs{s>3448:A,lnx}
-            .name = "qs",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .s, .op = .gt, .value = 3448 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "lnx" },
-                },
-            },
-        },
-        .{ //rfg{s<537:gd,x>2440:R,A}
-            .name = "rfg",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .s, .op = .lt, .value = 537 } }, .workflow = "gd" },
-                    .{ .condition = .{ .comparison = .{ .rating = .x, .op = .gt, .value = 2440 } }, .workflow = "R" },
-                    .{ .condition = Always, .workflow = "A" },
-                },
-            },
-        },
+const test_input_str = test_program_str ++ "\n\n" ++ test_data_str;
+
+const test_program = Program{
+    .instructions = &[_]Instruction{
+        // A (0)
+        .{ .ret = true },
+        // R (1)
+        .{ .ret = false },
+        // px (2)
+        .{ .blt = .{ .r = .a, .v = 2006, .label = 14 } },
+        .{ .bgt = .{ .r = .m, .v = 2090, .label = 0 } },
+        .{ .b = .{ .label = 9 } },
+        // pv (5)
+        .{ .bgt = .{ .r = .a, .v = 1716, .label = 1 } },
+        .{ .b = .{ .label = 0 } },
+        // lnx (7)
+        .{ .bgt = .{ .r = .m, .v = 1548, .label = 0 } },
+        .{ .b = .{ .label = 0 } },
+        // rfg (9)
+        .{ .blt = .{ .r = .s, .v = 537, .label = 23 } },
+        .{ .bgt = .{ .r = .x, .v = 2440, .label = 1 } },
+        .{ .b = .{ .label = 0 } },
+        // qs (12)
+        .{ .bgt = .{ .r = .s, .v = 3448, .label = 0 } },
+        .{ .b = .{ .label = 7 } },
+        // qkq (14)
+        .{ .blt = .{ .r = .x, .v = 1416, .label = 0 } },
+        .{ .b = .{ .label = 16 } },
+        // crn (16)
+        .{ .bgt = .{ .r = .x, .v = 2662, .label = 0 } },
+        .{ .b = .{ .label = 1 } },
+        // in (18)
+        .{ .blt = .{ .r = .s, .v = 1351, .label = 2 } },
+        .{ .b = .{ .label = 20 } },
+        // qqz (20)
+        .{ .bgt = .{ .r = .s, .v = 2770, .label = 12 } },
+        .{ .blt = .{ .r = .m, .v = 1801, .label = 25 } },
+        .{ .b = .{ .label = 1 } },
+        // gd (23)
+        .{ .bgt = .{ .r = .a, .v = 3333, .label = 1 } },
+        .{ .b = .{ .label = 1 } },
+        // hdj (25)
+        .{ .bgt = .{ .r = .m, .v = 838, .label = 0 } },
+        .{ .b = .{ .label = 5 } },
     },
-    .parts = &[_]Part{
-        .{ .x = 787, .m = 2655, .a = 1222, .s = 2876 },
-        .{ .x = 1679, .m = 44, .a = 2067, .s = 496 },
-        .{ .x = 2036, .m = 264, .a = 79, .s = 2244 },
-        .{ .x = 2461, .m = 1339, .a = 466, .s = 291 },
-        .{ .x = 2127, .m = 1623, .a = 2188, .s = 1013 },
-    },
+    .start = 18,
+};
+
+const test_data = &[_]Part{
+    .{ .x = 787, .m = 2655, .a = 1222, .s = 2876 },
+    .{ .x = 1679, .m = 44, .a = 2067, .s = 496 },
+    .{ .x = 2036, .m = 264, .a = 79, .s = 2244 },
+    .{ .x = 2461, .m = 1339, .a = 466, .s = 291 },
+    .{ .x = 2127, .m = 1623, .a = 2188, .s = 1013 },
 };
 
 const Rating = enum {
@@ -156,137 +98,132 @@ const Rating = enum {
     }
 };
 
-const Operator = enum {
-    const Self = @This();
-    lt,
-    gt,
-
-    fn parse(input: []const u8) !Self {
-        if (input.len != 1) return error.WrongSize;
-        return switch (input[0]) {
-            '<' => .lt,
-            '>' => .gt,
-            else => return error.BadOperator,
-        };
-    }
+const Instruction = union(enum) {
+    ret: bool,
+    blt: struct { r: Rating, v: u16, label: usize },
+    bgt: struct { r: Rating, v: u16, label: usize },
+    b: struct { label: usize },
 };
 
-const Comparison = struct {
+const Program = struct {
     const Self = @This();
-    rating: Rating,
-    op: Operator,
-    value: u16,
+    instructions: []const Instruction,
+    start: usize,
 
-    fn parse(input: []const u8) !Self {
-        if (input.len < 3) return error.WrongSize;
-        return Comparison{
-            .rating = try Rating.parse(input[0..1]),
-            .op = try Operator.parse(input[1..2]),
-            .value = try std.fmt.parseUnsigned(u16, input[2..], 10),
-        };
+    fn run(self: Self, part: Part) bool {
+        var pc = self.start;
+        var regs = part;
+        while (true) {
+            switch (self.instructions[pc]) {
+                .ret => |ret| return ret,
+                .blt => |blt| if (regs.get(blt.r) < blt.v) {
+                    pc = blt.label;
+                } else {
+                    pc += 1;
+                },
+                .bgt => |bgt| if (regs.get(bgt.r) > bgt.v) {
+                    pc = bgt.label;
+                } else {
+                    pc += 1;
+                },
+                .b => |b| pc = b.label,
+            }
+        }
     }
-    fn matches(self: Self, part: Part) bool {
-        return switch (self.op) {
-            .lt => part.get(self.rating) < self.value,
-            .gt => part.get(self.rating) > self.value,
-        };
+    fn volume(self: Self, start: usize, r: Range) u64 {
+        var pc = start;
+        var rest = r;
+        var sum: u64 = 0;
+        while (true) {
+            if (rest.isEmpty()) return sum;
+            switch (self.instructions[pc]) {
+                .ret => |b| {
+                    if (b) sum += rest.volume();
+                    return sum;
+                },
+                .blt => |blt| {
+                    const sp = rest.splitAt(blt.r, blt.v);
+                    sum += self.volume(blt.label, sp.lo);
+                    rest = sp.hi;
+                    pc += 1;
+                },
+                .bgt => |bgt| {
+                    const sp = rest.splitAt(bgt.r, bgt.v + 1);
+                    sum += self.volume(bgt.label, sp.hi);
+                    rest = sp.lo;
+                    pc += 1;
+                },
+                .b => |b| {
+                    pc = b.label;
+                },
+            }
+        }
     }
-};
-
-test "Comparison.parse" {
-    try std.testing.expectEqualDeep(
-        Comparison{ .rating = .a, .op = .lt, .value = 2006 },
-        try Comparison.parse("a<2006"),
-    );
-}
-
-const Condition = union(enum) {
-    const Self = @This();
-    comparison: Comparison,
-    always: struct {},
-
-    fn matches(self: Self, part: Part) bool {
-        return switch (self) {
-            .comparison => |c| c.matches(part),
-            .always => true,
-        };
-    }
-};
-
-const Always = Condition{ .always = .{} };
-
-const Rule = struct {
-    const Self = @This();
-    condition: Condition,
-    workflow: []const u8,
-
-    fn parse(input: []const u8) !Self {
-        const p = std.mem.indexOfScalar(u8, input, ':') orelse return error.NoSplit;
-        return Self{
-            .condition = .{ .comparison = try Comparison.parse(input[0..p]) },
-            .workflow = input[p + 1 ..],
-        };
-    }
-};
-
-test "Rule.parse" {
-    try std.testing.expectEqualDeep(
-        Rule{ .condition = .{ .comparison = .{ .rating = .a, .op = .lt, .value = 2006 } }, .workflow = "qkq" },
-        try Rule.parse("a<2006:qkq"),
-    );
-}
-
-const Workflow = struct {
-    const Self = @This();
-    name: []const u8,
-    action: union(enum) {
-        halt: bool,
-        rules: []const Rule,
-    },
-
-    fn parse(input: []const u8) !Self {
-        if (input.len < 4) return error.TooShort;
-        if (input[input.len - 1] != '}') return error.NoCloseBrace;
-        var p = std.mem.indexOfScalar(u8, input, '{') orelse return error.NoOpenBrace;
-        var p2 = std.mem.lastIndexOfScalar(u8, input, ',') orelse return error.NoComma;
-        var list = std.ArrayList(Rule).init(allocator);
+    fn compile(input: []const u8) !Self {
+        var list = std.ArrayList(Instruction).init(allocator);
         errdefer list.deinit();
+        var labels = std.StringHashMap(usize).init(allocator);
+        defer labels.deinit();
+        var references = std.ArrayList(struct { label: []const u8, offset: usize }).init(allocator);
+        defer references.deinit();
+        try labels.put("A", list.items.len);
+        try list.append(.{ .ret = true });
+        try labels.put("R", list.items.len);
+        try list.append(.{ .ret = false });
+        var it = std.mem.splitScalar(u8, input, '\n');
+        while (it.next()) |line| {
+            if (line.len < 1) return error.TooShort;
+            if (line[line.len - 1] != '}') return error.NoCloseBrace;
+            var p = std.mem.indexOfScalar(u8, line, '{') orelse return error.NoOpenBrace;
+            try labels.put(line[0..p], list.items.len);
+            var p2 = std.mem.lastIndexOfScalar(u8, line, ',') orelse return error.NoComma;
+            var rules = std.mem.splitScalar(u8, line[p + 1 .. p2], ',');
+            while (rules.next()) |rule| {
+                const p3 = std.mem.indexOfScalar(u8, rule, ':') orelse return error.NoColon;
+                const rating = try Rating.parse(rule[0..1]);
+                const value = try std.fmt.parseUnsigned(u16, rule[2..p3], 10);
+                const label = rule[p3 + 1 ..];
+                switch (rule[1]) {
+                    '>' => {
+                        try list.append(.{ .bgt = .{ .r = rating, .v = value, .label = undefined } });
+                        try references.append(.{ .label = label, .offset = @intFromPtr(&list.items[list.items.len - 1].bgt.label) - @intFromPtr(&list.items[0]) });
+                    },
+                    '<' => {
+                        try list.append(.{ .blt = .{ .r = rating, .v = value, .label = undefined } });
+                        try references.append(.{ .label = label, .offset = @intFromPtr(&list.items[list.items.len - 1].blt.label) - @intFromPtr(&list.items[0]) });
+                    },
+                    else => return error.BadOperator,
+                }
+            }
+            try list.append(.{ .b = .{ .label = undefined } });
+            try references.append(.{ .label = line[p2 + 1 .. line.len - 1], .offset = @intFromPtr(&list.items[list.items.len - 1].b.label) - @intFromPtr(&list.items[0]) });
+        }
+        for (references.items) |reference| {
+            const ptr = @as(*usize, @ptrFromInt(@intFromPtr(&list.items[0]) + reference.offset));
+            ptr.* = labels.get(reference.label) orelse return error.LabelNotFound;
+        }
         return Self{
-            .name = input[0..p],
-            .action = .{
-                .rules = init: {
-                    var it = std.mem.splitScalar(u8, input[p + 1 .. p2], ',');
-                    while (it.next()) |item|
-                        try list.append(try Rule.parse(item));
-                    try list.append(Rule{ .condition = Always, .workflow = input[p2 + 1 .. input.len - 1] });
-                    break :init try list.toOwnedSlice();
-                },
-            },
+            .instructions = try list.toOwnedSlice(),
+            .start = labels.get("in") orelse return error.NoEntryPoint,
         };
-    }
-    fn lessThan(context: void, lhs: Self, rhs: Self) bool {
-        _ = context;
-        return std.mem.lessThan(u8, lhs.name, rhs.name);
     }
 };
 
-const Accept = Workflow{ .name = "A", .action = .{ .halt = true } };
-const Reject = Workflow{ .name = "R", .action = .{ .halt = false } };
+test "Program.compile" {
+    const pgm = try Program.compile(test_program_str);
+    try std.testing.expectEqualDeep(test_program, pgm);
+}
 
-test "Workflow.parse" {
-    try std.testing.expectEqualDeep(
-        Workflow{
-            .name = "px",
-            .action = .{
-                .rules = &[_]Rule{
-                    .{ .condition = .{ .comparison = .{ .rating = .a, .op = .lt, .value = 2006 } }, .workflow = "qkq" },
-                    .{ .condition = .{ .comparison = .{ .rating = .m, .op = .gt, .value = 2090 } }, .workflow = "A" },
-                    .{ .condition = Always, .workflow = "rfg" },
-                },
-            },
-        },
-        try Workflow.parse("px{a<2006:qkq,m>2090:A,rfg}"),
-    );
+test "Program.run" {
+    const tests = [_]struct { part: Part, accept: bool }{
+        .{ .part = .{ .x = 787, .m = 2655, .a = 1222, .s = 2876 }, .accept = true },
+        .{ .part = .{ .x = 1679, .m = 44, .a = 2067, .s = 496 }, .accept = false },
+        .{ .part = .{ .x = 2036, .m = 264, .a = 79, .s = 2244 }, .accept = true },
+        .{ .part = .{ .x = 2461, .m = 1339, .a = 466, .s = 291 }, .accept = false },
+        .{ .part = .{ .x = 2127, .m = 1623, .a = 2188, .s = 1013 }, .accept = true },
+    };
+    for (tests) |t|
+        try expect(test_program.run(t.part) == t.accept);
 }
 
 const Part = struct {
@@ -297,35 +234,22 @@ const Part = struct {
     s: u16,
 
     fn parse(input: []const u8) !Self {
-        if (input.len < 3) return error.TooShort;
-        if (input[0] != '{') return error.NoOpenBrace;
+        var result: Self = undefined;
+        if (input.len < 1 or input[0] != '{') return error.NoOpenBrace;
         if (input[input.len - 1] != '}') return error.NoCloseBrace;
         var it = std.mem.splitScalar(u8, input[1 .. input.len - 1], ',');
-        var arr = std.EnumArray(Rating, ?u16).initFill(null);
-        while (it.next()) |word| {
-            if (word.len < 3) return error.TooShort;
-            if (word[1] != '=') return error.NoEquals;
-            const rating = try Rating.parse(word[0..1]);
-            if (arr.get(rating) != null) return error.RepeatedRating;
-            arr.set(rating, try std.fmt.parseUnsigned(u16, word[2..], 10));
-        }
-        return Self{
-            .x = arr.get(.x) orelse return error.RatingNotSet,
-            .m = arr.get(.m) orelse return error.RatingNotSet,
-            .a = arr.get(.a) orelse return error.RatingNotSet,
-            .s = arr.get(.s) orelse return error.RatingNotSet,
-        };
+        for (std.enums.values(Rating)) |rating|
+            if (it.next()) |word| {
+                if (word.len < 2) return error.TooShort;
+                if (try Rating.parse(word[0..1]) != rating) return error.WrongRating;
+                if (word[1] != '=') return error.NoEquals;
+                result.set(rating, try std.fmt.parseUnsigned(u16, word[2..], 10));
+            };
+        if (it.next()) |_| return error.TooManyRatings;
+        return result;
     }
     fn ratingSum(self: Self) u16 {
         return self.x + self.m + self.a + self.s;
-    }
-    fn getPtr(self: *Self, rating: Rating) *u16 {
-        return switch (rating) {
-            .x => &self.x,
-            .m => &self.m,
-            .a => &self.a,
-            .s => &self.s,
-        };
     }
     fn get(self: Self, rating: Rating) u16 {
         return switch (rating) {
@@ -335,9 +259,17 @@ const Part = struct {
             .s => self.s,
         };
     }
+    fn set(self: *Self, r: Rating, v: u16) void {
+        (switch (r) {
+            .x => &self.x,
+            .m => &self.m,
+            .a => &self.a,
+            .s => &self.s,
+        }).* = v;
+    }
     fn subst(self: Self, r: Rating, v: u16) Self {
         var new = self;
-        new.getPtr(r).* = v;
+        new.set(r, v);
         return new;
     }
 };
@@ -359,86 +291,38 @@ test "Part.ratingSum" {
         try expect(t.part.ratingSum() == t.sum);
 }
 
-const Data = struct {
-    const Self = @This();
-    workflows: []const Workflow,
-    parts: []const Part,
-
-    fn parse(input: []const u8) !Self {
-        const p = std.mem.indexOf(u8, input, "\n\n") orelse return error.NoSplit;
-        return Self{
-            .workflows = init: {
-                var list = std.ArrayList(Workflow).init(allocator);
-                errdefer list.deinit();
-                try list.append(Accept);
-                try list.append(Reject);
-                var it = std.mem.splitScalar(u8, input[0..p], '\n');
-                while (it.next()) |line| {
-                    try list.append(try Workflow.parse(line));
-                }
-                std.sort.insertion(Workflow, list.items, {}, Workflow.lessThan);
-                break :init try list.toOwnedSlice();
-            },
-            .parts = init: {
-                var list = std.ArrayList(Part).init(allocator);
-                errdefer list.deinit();
-                var it = std.mem.splitScalar(u8, input[p + 2 ..], '\n');
-                while (it.next()) |line| {
-                    try list.append(try Part.parse(line));
-                }
-                break :init try list.toOwnedSlice();
-            },
-        };
-    }
-};
-
-test "Data.parse" {
-    try std.testing.expectEqualDeep(test_input, try Data.parse(test_input_str));
-}
-
-fn compareWorkflowName(context: void, name: []const u8, workflow: Workflow) std.math.Order {
-    _ = context;
-    return std.mem.order(u8, name, workflow.name);
-}
-
-fn getWorkflow(workflows: []const Workflow, name: []const u8) Workflow {
-    const wf = workflows[std.sort.binarySearch(Workflow, name, workflows, {}, compareWorkflowName) orelse unreachable];
-    std.debug.assert(std.mem.eql(u8, wf.name, name));
-    return wf;
-}
-
-fn check(part: Part, workflows: []const Workflow, start: []const u8) bool {
-    return switch (getWorkflow(workflows, start).action) {
-        .halt => |b| b,
-        .rules => |rules| for (rules) |rule|
-            if (rule.condition.matches(part))
-                break check(part, workflows, rule.workflow),
+fn parse(input: []const u8) !struct { program: Program, data: []const Part } {
+    const p = std.mem.indexOf(u8, input, "\n\n") orelse return error.NoSplit;
+    return .{
+        .program = try Program.compile(input[0..p]),
+        .data = init: {
+            var list = std.ArrayList(Part).init(allocator);
+            errdefer list.deinit();
+            var it = std.mem.splitScalar(u8, input[p + 2 ..], '\n');
+            while (it.next()) |line|
+                try list.append(try Part.parse(line));
+            break :init try list.toOwnedSlice();
+        },
     };
 }
 
-test "check" {
-    const tests = [_]struct { part: Part, accept: bool }{
-        .{ .part = .{ .x = 787, .m = 2655, .a = 1222, .s = 2876 }, .accept = true },
-        .{ .part = .{ .x = 1679, .m = 44, .a = 2067, .s = 496 }, .accept = false },
-        .{ .part = .{ .x = 2036, .m = 264, .a = 79, .s = 2244 }, .accept = true },
-        .{ .part = .{ .x = 2461, .m = 1339, .a = 466, .s = 291 }, .accept = false },
-        .{ .part = .{ .x = 2127, .m = 1623, .a = 2188, .s = 1013 }, .accept = true },
-    };
-    for (tests) |t|
-        try expect(check(t.part, test_input.workflows, "in") == t.accept);
+test "parse" {
+    const parsed = try parse(test_input_str);
+    try std.testing.expectEqualDeep(test_program, parsed.program);
+    try std.testing.expectEqualSlices(Part, test_data, parsed.data);
 }
 
-fn part1(input: Data) i64 {
+fn part1(program: Program, data: []const Part) i64 {
     var sum: i64 = 0;
-    for (input.parts) |part| {
-        if (check(part, input.workflows, "in"))
+    for (data) |part| {
+        if (program.run(part))
             sum += part.ratingSum();
     }
     return sum;
 }
 
 test "part1" {
-    try expect(part1(test_input) == 19114);
+    try expect(part1(test_program, test_data) == 19114);
 }
 
 const Range = struct {
@@ -457,77 +341,23 @@ const Range = struct {
             v *= r.hi.get(rating) -| r.lo.get(rating);
         return v;
     }
-    pub fn format(r: Self, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = fmt;
-        _ = options;
-        return std.fmt.format(
-            writer,
-            "({d}..{d}, {d}..{d}, {d}..{d}, {d}..{d})",
-            .{ r.lo.x, r.hi.x, r.lo.m, r.hi.m, r.lo.a, r.hi.a, r.lo.s, r.hi.s },
-        );
+    fn splitAt(r: Self, rating: Rating, value: u16) struct { lo: Range, hi: Range } {
+        return .{
+            .lo = .{ .lo = r.lo, .hi = r.hi.subst(rating, value) },
+            .hi = .{ .lo = r.lo.subst(rating, value), .hi = r.hi },
+        };
     }
 };
 
-const EmptyRange = Range{
-    .lo = .{ .x = 0, .m = 0, .a = 0, .s = 0 },
-    .hi = .{ .x = 0, .m = 0, .a = 0, .s = 0 },
-};
-
-const SplitRange = struct {
-    const Self = @This();
-    match: Range,
-    rest: Range,
-
-    fn make(r: Range, cond: Condition) Self {
-        switch (cond) {
-            .always => return Self{ .match = r, .rest = EmptyRange },
-            .comparison => |c| {
-                return switch (c.op) {
-                    .lt => Self{
-                        .match = .{ .lo = r.lo, .hi = r.hi.subst(c.rating, c.value) },
-                        .rest = .{ .lo = r.lo.subst(c.rating, c.value), .hi = r.hi },
-                    },
-                    .gt => Self{
-                        .match = .{ .lo = r.lo.subst(c.rating, c.value + 1), .hi = r.hi },
-                        .rest = .{ .lo = r.lo, .hi = r.hi.subst(c.rating, c.value + 1) },
-                    },
-                };
-            },
-        }
-    }
-};
-
-fn volume(r: Range, workflows: []const Workflow, start: []const u8) u64 {
-    return switch (getWorkflow(workflows, start).action) {
-        .halt => |b| if (b) r.volume() else 0,
-        .rules => |rules| init: {
-            var rest = r;
-            var sum: u64 = 0;
-            for (rules) |rule| {
-                if (rest.isEmpty()) break;
-                const sp = SplitRange.make(rest, rule.condition);
-                sum += volume(sp.match, workflows, rule.workflow);
-                rest = sp.rest;
-            }
-            break :init sum;
-        },
-    };
-}
-
-fn part2(input: Data) u64 {
-    const v = volume(
-        .{
-            .lo = .{ .x = 1, .m = 1, .a = 1, .s = 1 },
-            .hi = .{ .x = 4001, .m = 4001, .a = 4001, .s = 4001 },
-        },
-        input.workflows,
-        "in",
-    );
-    return v;
+fn part2(program: Program) u64 {
+    return program.volume(program.start, .{
+        .lo = .{ .x = 1, .m = 1, .a = 1, .s = 1 },
+        .hi = .{ .x = 4001, .m = 4001, .a = 4001, .s = 4001 },
+    });
 }
 
 test "part2" {
-    try expect(part2(test_input) == 167409079868000);
+    try expect(part2(test_program) == 167409079868000);
 }
 
 var buffer: [1 << 20]u8 = undefined;
@@ -539,7 +369,7 @@ pub fn main() !void {
         defer file.close();
         break :init try file.readToEndAlloc(allocator, 1 << 16);
     };
-    const input = try Data.parse(input_string);
-    std.debug.print("{d}\n", .{part1(input)});
-    std.debug.print("{d}\n", .{part2(input)});
+    const parsed = try parse(input_string);
+    std.debug.print("{d}\n", .{part1(parsed.program, parsed.data)});
+    std.debug.print("{d}\n", .{part2(parsed.program)});
 }
